@@ -1,0 +1,27 @@
+
+## Updating the Database
+
+Whenever you add, remove, or rename files, run `updatedb` again to refresh the database.
+
+## Database Location
+
+The database is stored at `/locate.db` on your SD card. You can delete it at any time (it will be recreated when you run `updatedb` again).
+
+## Performance
+
+- **First run (updatedb):** Scans all files – may take several minutes
+- **Subsequent searches (locate):** Instant – only reads the database
+- **Database size:** ~2 MB for 45,000 files
+- **Memory usage:** Very low (~4 KB)
+
+## Troubleshooting
+
+| Problem | Solution |
+|---------|----------|
+| `Error: Could not open database` | Run `updatedb` first to create the database |
+| No files found | Run `updatedb` again to refresh the database |
+| Search takes a long time | Only the first search after boot reads the database; subsequent searches are fast |
+
+## License
+
+Open source – free to use, modify, and share.

@@ -1,0 +1,112 @@
+Agon Terminal - XMODEM / YMODEM
+-------------------------------
+A simple serial terminal for the Agon Light / Console8 microcomputers, featuring XMODEM and YMODEM file transfer, session capture,
+and a full-screen interface with a large 24-line workspace.
+
+Features
+--------
+    Full Serial Terminal – 115200 8N1 communication (configurable)
+
+    XMODEM File Transfer – Send and receive files using the classic XMODEM protocol (128-byte blocks, CRC/Checksum)
+
+    YMODEM File Transfer – Send and receive files with support for:
+
+        Filename and file size
+
+        1KB blocks for faster transfers
+
+        CRC16 error checking
+
+    Session Capture – Save all serial activity to a file (capture.txt)
+
+    Large Workspace – 24 lines of text area (lines 5–28) for better visibility
+
+    Local Echo Toggle – Enable/disable local echo with Ctrl+E
+
+    Help Screen – Built-in command reference (Ctrl+H)
+
+    Configuration Menu – Toggle between CRC and Checksum for XMODEM (Ctrl+B, then T)
+
+    Clean Interface – Professional layout with status bar and visual feedback
+
+Controls
+--------
+Key	Function
+Ctrl+C	Send file via XMODEM
+Ctrl+D	Receive file via XMODEM
+Ctrl+Y	Send file via YMODEM (1K blocks, filename support)
+Ctrl+U	Receive file via YMODEM
+Ctrl+E	Toggle local echo (ON/OFF)
+Ctrl+F	Toggle session capture (ON/OFF)
+Ctrl+L	Clear screen
+Ctrl+H	Show help screen
+Ctrl+B	Configuration menu
+Ctrl+Q	Exit terminal
+
+Installation
+------------
+    Copy minicom.bin to your SD card in /bin directory.
+
+    Run from the MOS prompt:
+
+    *minicom
+
+File Transfer
+-------------
+Sending a File (XMODEM or YMODEM)
+
+    Press Ctrl+C (XMODEM) or Ctrl+Y (YMODEM).
+
+    Enter the filename (e.g., program.bin).
+
+    The terminal will show file size and wait for the receiver.
+
+    Progress is displayed during transfer.
+
+Receiving a File (XMODEM or YMODEM)
+
+    Press Ctrl+D (XMODEM) or Ctrl+U (YMODEM).
+
+    Enter the destination filename.
+
+    The terminal waits for the sender and shows progress.
+
+    Note: YMODEM sends the filename and file size automatically. XMODEM sends raw data only.
+
+Session Capture
+---------------
+Press Ctrl+F to start or stop capturing all incoming serial data to capture.txt on the SD card.
+
+Configuration
+---------------
+
+Press Ctrl+B to open the configuration menu:
+
+    Press T to toggle between CRC (more reliable) and Checksum (faster) for XMODEM transfers.
+
+    Press any other key to exit.
+
+Status Bar
+---------------
+
+The status bar (bottom line) shows:
+
+    Baud rate (115200 8N1)
+    Local echo status (ON/OFF)
+    Capture status (ON/OFF)
+    XMODEM mode (CRC / CHK)
+    Connection status (YES/NO)
+
+Credits
+---------------
+Developed with the Agon Light community. Special thanks to all testers and contributors.
+
+--------------------------- License ----------------------------
+
+This program is released under the UNLICENSE – free for any use.
+
+Enjoy your professional serial terminal with XMODEM and YMODEM! 🚀
+
+Let me know if you'd like to adjust anything or add more details!
+
+@admin.electrotux@gmail.com

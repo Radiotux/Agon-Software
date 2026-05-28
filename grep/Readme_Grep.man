@@ -1,0 +1,124 @@
+# grep - Search for Patterns in Files
+
+A powerful text search utility for the Agon Light, inspired by the Unix `grep` command. Searches files for patterns and displays matching lines.
+
+## Installation
+
+1. Copy `grep.bin` to your SD card in the /bin directory
+2. Run directly: `grep pattern file`
+
+## Quick Start
+
+```bash
+# Search for "error" in a log file
+grep "error" log.txt
+
+# Case-insensitive search for "warning"
+grep -i "warning" *.c
+
+# Search recursively in current directory
+grep -r "TODO" .
+
+# Show line numbers with matches
+grep -n "main" *.c
+
+# Count matches
+grep -c "error" *.log
+
+Search Options
+-i, --ignore-case	Ignore case distinctions
+-v, --invert-match	Show lines that DO NOT match
+-w, --word-regexp	Match whole words only
+-x, --line-regexp	Match whole lines only
+-F, --fixed-strings	Treat pattern as fixed string (no wildcards)
+
+Output Options
+-n, --line-number	Print line numbers with output
+-c, --count	Print only count of matches per file
+-l, --files-with-matches	Print only filenames with matches
+-L, --files-without-match	Print only filenames without matches
+-r, --recursive	Search directories recursively
+-h, --help	Display detailed help
+
+Basic Wildcards (default)
+*	Any sequence	        err* matches error, err, erring
+?	Any single character	te?t matches test, text, tent
+
+Basic Searches
+# Simple string search
+grep "error" log.txt
+
+# Multiple files with wildcard
+grep "TODO" *.c
+
+# Case-insensitive
+grep -i "warning" *.log
+
+# Whole word only
+grep -w "int" *.c        # matches 'int' but not 'printf' or 'integer'
+grep -w "for" *.c        # matches 'for' but not 'forward'
+
+# Whole line exact match
+grep -x "int main()" *.c
+
+Output Formatting
+# Show line numbers
+grep -n "error" log.txt
+
+# Count matches per file
+grep -c "error" *.log
+
+# List files containing pattern
+grep -l "FIXME" *.c
+
+# List files NOT containing pattern
+grep -L "TODO" *.c
+
+Recursive Search
+# Search entire directory tree
+grep -r "TODO" .
+
+# Recursive with case-insensitive
+grep -ri "error" src/
+
+# Recursive with line numbers
+grep -rn "main" .
+
+Combining Options
+# Recursive, ignore case, line numbers
+grep -rin "todo" .
+
+# List files with errors (case-insensitive)
+grep -il "error" *.log
+
+# Count warnings in all .c files (case-insensitive)
+grep -ic "warning" *.c
+
+# Show non-matching lines (invert)
+grep -v "error" log.txt
+
+Combining with find (Experimental)
+Since Agon doesn't have pipes, use find with -exec:
+# Search all .c files for "main"
+find . -name "*.c" -exec grep -n "main" {} \;
+
+# Count TODO occurrences in all files
+find . -type f -exec grep -c "TODO" {} \;
+
+# List all .txt files containing "error"
+find . -name "*.txt" -exec grep -l "error" {} \;
+
+Notes
+
+    Patterns with spaces must be quoted: grep "hello world" file.txt
+
+    Agon does not support pipes (|). Use find -exec for combining commands
+
+    Large files may take time to process; use -c or -l for faster results
+
+-------------------------------------------------------------------------    
+    License
+
+Open source – free to use, modify, and share.
+
+-------------------------------------------------------------------------

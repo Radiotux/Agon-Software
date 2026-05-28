@@ -1,0 +1,2 @@
+cp bin/updatedb.bin /media/sdcard/
+cp bin/locate.bin /media/sdcard/

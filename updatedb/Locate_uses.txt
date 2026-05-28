@@ -1,0 +1,25 @@
+
+## locate Commands
+
+| Command | Description |
+|---------|-------------|
+| `locate "pattern"` | Search for files matching the pattern |
+| `locate -n "pattern"` | Show only filenames (no paths) |
+| `locate -c "pattern"` | Show only the number of matches |
+| `locate -i "pattern"` | Case-insensitive search |
+| `locate -h` | Show help |
+
+## Pattern Examples
+
+| Pattern | What it finds |
+|---------|---------------|
+| `"*.bin"` | All files ending with .bin |
+| `"test*"` | Files starting with "test" |
+| `"*.{c,h}"` | Files ending with .c or .h |
+| `"backup_????.txt"` | Files like backup_2024.txt |
+| `"image_#.jpg"` | Files like image_1.jpg (digits) |
+| `"*"` | All indexed files |
+
+## Common Use Cases
+
+**Find all .bin files:**

@@ -1,0 +1,3 @@
+updatedb          # Create database (once)
+locate "*.bin"    # Find all .bin files
+locate -c "*.c"   # Count .c files

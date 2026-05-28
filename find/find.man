@@ -1,0 +1,47 @@
+# Find all .txt files
+find  -name "*.txt"
+
+# Find all files in /mos directory
+find /mos -type f
+
+# Find all directories
+find  -type d
+
+# Files larger than 100 KB
+find  -size +100k
+
+# Files smaller than 1 MB
+find  -size -1M
+
+# Files exactly 512 bytes
+find  -size 512c
+
+# Files larger than 10 MB
+find  -size +10M
+
+# C files larger than 10 KB
+find  -name "*.c" -size +10k
+
+# .c OR .h files
+find  -name "*.c" -o -name "*.h"
+
+# All files except .bin
+find  -type f ! -name "*.bin"
+
+# Directories containing "test" in name
+find  -type d -name "*test*"
+
+# Only current directory (no subdirectories)
+find  -maxdepth 1 -name "*.bin"
+
+# Two levels deep
+find / -maxdepth 2 -type f
+
+# List with attributes (like ls -l)
+find / -name "*.bin" -ls
+
+
+find / -name "*.c"   # Correct
+find / -name *.c     # May not work as expected
+
+find / -name "*.bin" -maxdepth 2
