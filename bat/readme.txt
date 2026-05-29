@@ -9,7 +9,7 @@
 *   **Multiformat Syntax Highlighting**: Smart parsing engine supports **C Source**, **Z80/eZ80 Assembly listings**, and **BBC BASIC** code syntax natively.
 *   **Context-Aware File Parsing**: Automatically detects formats based on filename extensions (`.bas`, `.bbc`) or dynamic evaluation of internal layout footprints (such as parsing `tpasm` listing matrices).
 *   **Pure Hardware Control Palette**: Direct communication via native **BBC BASIC VDU 17** system byte vectors to drive video chip (VDP) operations on retro platforms without overhead.
-*   **Optimized Resource Allocation**: Single-pass data streaming requires fixed RAM constraints (approx. 512 bytes), allowing safe and fluid execution when scanning large multimegabyte documents on a microcomputer.
+*   **Optimized Resource Allocation**: Single-pass data streaming requires fixed RAM constraints (approx. 512 bytes), allowing safe and fluid execution when scanning large documents on a microcomputer.
 *   **Clean Retro Pagination**: Freezes line rendering accurately at standard 30-line increments in silent mode. Hit `ENTER` to scroll down cleanly or tap `Q` to instantly abort and return safely to the MOS operating system prompt.
 
 ---
