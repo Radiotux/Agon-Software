@@ -1,0 +1,76 @@
+=============================================================================
+             BAT FOR AGON LIGHT - CLONE OF LINUX BAT COMMAND
+=============================================================================
+Version: 1.5.0 (Stable Release)
+Target Platform: Agon Light / Agon Light 2 (eZ80 24-bit ADL Native Mode)
+Graphics Backend: Agon VDP Vector Processor Engine (Mode 27)
+License: MIT License
+=============================================================================
+
+1. DESCRIPTION
+-----------------------------------------------------------------------------
+'bat' is an advanced code viewer and cat clone written in C specifically
+engineered for the Agon Light retro-computer ecosystem running Agon MOS.
+
+Inspired by the modern Linux 'bat' utility, this native application features:
+* Real-time lexical analysis and syntax highlighting for C Language,
+  eZ80 Assembly, and BBC BASIC.
+* A high-resolution graphic framing layout (Mode 27) built using native VDP
+  vector graphics commands, mimicking modern terminal grid designs.
+* Dynamic grid scaling accommodating files up to 9999 lines seamlessly.
+* Fluid bidirectional page-by-page interactive navigation with static index
+  offset caches (Zero heap or memory fragmentation overhead).
+* Hardware text background transparency to safeguard the visual integrity
+  of high-definition lines during scrolling/pagination steps.
+* Automatic environment cleanup (CLS) returning to clean MOS prompt upon exit.
+
+
+2. COMPILATION REQUIREMENTS
+-----------------------------------------------------------------------------
+This source code is tailored to be natively compiled with the modern
+**AgonDev Toolchain** configuration environment (LLVM-based cross compiler).
+
+Ensure your local development platform has the proper toolchain variables
+mapped inside your system paths before initiating the enlazado steps.
+
+
+3. BUILD INSTRUCTIONS
+-----------------------------------------------------------------------------
+To build the executable binary from your host terminal shell, navigate to
+your `bat2` folder context and execute the automated build chain sequences:
+
+  $ make clean
+  $ make
+
+The compilation pipeline uses LLVM frontend optimization routines to generate
+the final native binary footprint into the output sub-folder:
+  -> `bin/bat.noname.bin` (Renamed dynamically to system standard `bat.bin`)
+
+
+4. INSTALLATION (DIRECTORY SETUP)
+-----------------------------------------------------------------------------
+To deploy the command utility onto your physical Agon Light microSD layout:
+
+1. Safely mount your microSD card to your host system.
+2. Transfer the compiled file `bat.bin` directly into the system binary path:
+   -> Card Root: `/bin/`  (or `/mos/` depending on your active OS configuration)
+3. Unmount the card safely, slot it back into your Agon, and trigger it:
+
+  MOS> bat setup.c
+  MOS> bat projects/game.asm
+
+
+5. USER INTERFACE INTERACTIVE CONTROLS
+-----------------------------------------------------------------------------
+While viewing a code stream file, you can interactively shift the pages:
+* [ SPACEBAR ] or any key  -> Advance to the next full page (Forward).
+* [ b ] or [ B ]           -> Retroceder to the previous page (Backward).
+* [ q ] or [ Q ]           -> Abort current file view and trigger terminal CLS.
+
+
+6. CREDITS & CONTRIBUTIONS
+-----------------------------------------------------------------------------
+* Lead Architecture Engine: @rafd_electrotux (Radiotux)
+  - GitHub Project Repository: https://github.com/Radiotux/Agon-Software
+  - Richard Turnnidge bat Project collaboration https://github.com/richardturnnidge
+=============================================================================

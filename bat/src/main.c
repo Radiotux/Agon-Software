@@ -2,276 +2,467 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include <agon/mos.h>
 
-// Formal declaration to inform the compiler that getch() is available natively
-extern int getch(void);
-extern void putch(char c); // Envía bytes puros al VDP sin filtros ni interpretaciones de texto de stdio
+#define MODE_TEXT 0
+#define MODE_ASM  1
+#define MODE_C    2
+#define MODE_BAS  3
 
-#define LINE_BUFFER 512
-#define MAX_WIDTH 70
-#define PAGE_LINES 30 // Congela la salida exactamente en la línea 30 para evitar scroll involuntario
+#define PAGE_LINES 26     // Max vertical text density optimized for Mode 27
+#define MAX_PAGES 200
 
-// --- CONSTANTES VDU NATIVAS DE AGON LIGHT ---
-#define VDU_TEXT_COL 17
-#define COL_GRAY 8
-#define COL_RED 9
-#define COL_GREEN 10
-#define COL_CYAN 11
-#define COL_YELLOW 14
-#define COL_WHITE 15
+// Static page offset table calculated at startup
+uint32_t page_positions[MAX_PAGES];
+int current_page = 0;
+int line_number = 1;
+int active_lines = 0;
+int col_count = 0;
 
-// Macro nativa ultra-estable usando putch() para evitar conflictos de diagonales con el byte 10 (\n)
-#define SET_COLOR(c) { putch(VDU_TEXT_COL); putch((c)); }
+int total_lineas_archivo = 0;
+int ancho_texto_rejilla = 4;
+int coordenada_x_grafica = 64;
 
-// Modos de detección de archivo
-#define MODE_C 0
-#define MODE_ASM 1
-#define MODE_BASIC 2
-
-// --- LISTAS DE PALABRAS CLAVE ---
-const char *keywords_c[] = {
-	"void", "int", "char", "return", "if", "while", "for", "else", "const", "struct",
-	"#include", "#define", "FILE", "printf", "fopen", "fclose", "fgets", "putchar", NULL
-};
-
-// CORREGIDO: Añadidas directivas comunes con punto para compatibilidad total con listados eZ80
-const char *keywords_asm[] = {
-	"ld", "xor", "inc", "dec", "jp", "call", "org", "equ", "ret", "nop",
-	"add", "sub", "cp", "push", "pop", "db", "dw", "ds", "macro", "endm",
-	".assume", ".org", ".db", ".dw", ".ds", "moscall", NULL
-};
-
-const char *keywords_basic[] = {
-	"PRINT", "INPUT", "LET", "IF", "THEN", "ELSE", "GOTO", "GOSUB", "RETURN",
-	"FOR", "NEXT", "END", "PROC", "DEF", "LOCAL", "CLS", "MODE", "VDU", NULL
-};
-
-// Operadores de control comunes
-const char *operators[] = {"==", "!=", "&&", "||", ">=", "<=", NULL};
-
-// NUEVA FUNCIÓN AUXILIAR: Busca una palabra dentro de una línea ignorando mayúsculas y minúsculas
-const char *strcasestr_custom(const char *haystack, const char *needle) {
-	if (!haystack || !needle) return NULL;
-	size_t needle_len = strlen(needle);
-	if (needle_len == 0) return haystack;
-
-	for (const char *h = haystack; *h != '\0'; h++) {
-		if (strncasecmp(h, needle, needle_len) == 0) {
-			return h;
-		}
-	}
-	return NULL;
+// Sends a 16-bit integer in Little-Endian format to the VDP graphics processor
+void vdu_enviar_int16(int valor) {
+	putch(valor & 0xFF);
+	putch((valor >> 8) & 0xFF);
 }
 
-void process_and_print_line(char *line, int file_mode, int line_num) {
-	int length = strlen(line);
-
-	// Limpieza estricta de finales de línea (\n y \r) del buffer
-	while (length > 0 && (line[length - 1] == '\n' || line[length - 1] == '\r')) {
-		line[length - 1] = '\0';
-		length--;
-	}
-
-	char *useful_text = line;
-
-	// Lógica de omisión dinámica exclusiva para listados de TPASM
-	if (file_mode == MODE_ASM && length > 30) {
-		int has_real_content = 0;
-		for (int i = 0; line[i] != '\0'; i++) {
-			if (line[i] != ' ' && line[i] != '\t' && line[i] != '0') {
-				has_real_content = 1;
-				break;
-			}
-		}
-		if (!has_real_content) useful_text = "";
-	}
-
-	if (strlen(useful_text) > MAX_WIDTH) {
-		useful_text[MAX_WIDTH] = '\0';
-	}
-
-	// 1. IMPRIMIR NÚMERO DE LÍNEA (Gris)
-	SET_COLOR(COL_GRAY);
-	printf("%4d | ", line_num);
-	SET_COLOR(COL_WHITE);
-
-	// 2. MOTOR DE RESALTADO DINÁMICO DE SINTAXIS
-	if (strlen(useful_text) > 0) {
-		char *comment = NULL;
-		int comment_prefix_len = 0;
-
-		if (file_mode == MODE_C) {
-			comment = strstr(useful_text, "//");
-			comment_prefix_len = 2;
-		} else if (file_mode == MODE_ASM) {
-			comment = strstr(useful_text, ";");
-			comment_prefix_len = 1;
-		} else if (file_mode == MODE_BASIC) {
-			comment = strstr(useful_text, "REM");
-			comment_prefix_len = 3;
-		}
-
-		if (comment != NULL) {
-			*comment = '\0';
-			int in_string = 0;
-			for (int i = 0; useful_text[i] != '\0'; i++) {
-				if (useful_text[i] == '"') {
-					if (!in_string) {
-						SET_COLOR(COL_GREEN);
-						in_string = 1;
-					} else {
-						putchar(useful_text[i]);
-						SET_COLOR(COL_WHITE);
-						in_string = 0;
-						continue;
-					}
-				}
-
-				// Buscar operadores incluso dentro de las cadenas en líneas con comentarios
-				int is_operator = 0;
-				for (int o = 0; operators[o] != NULL; o++) {
-					int op_len = strlen(operators[o]);
-					if (strncmp(&useful_text[i], operators[o], op_len) == 0) {
-						SET_COLOR(COL_CYAN); // Operador en Cian/Morado
-						printf("%s", operators[o]);
-						SET_COLOR(in_string ? COL_GREEN : COL_WHITE); // Retorna a verde si sigue dentro de la cadena
-						i += (op_len - 1);
-						is_operator = 1;
-						break;
-					}
-				}
-				if (is_operator) continue;
-
-				putchar(useful_text[i]);
-			}
-			if (in_string) SET_COLOR(COL_WHITE);
-			SET_COLOR(COL_RED);
-			if (file_mode == MODE_C) printf("//%s", comment + comment_prefix_len);
-				else if (file_mode == MODE_ASM) printf(";%s", comment + comment_prefix_len);
-				else if (file_mode == MODE_BASIC) printf("REM%s", comment + comment_prefix_len);
-				SET_COLOR(COL_WHITE);
-		}
-		else {
-			int line_color = COL_WHITE;
-			if (file_mode == MODE_C) {
-				for (int i = 0; keywords_c[i] != NULL; i++) {
-					if (strcasestr_custom(useful_text, keywords_c[i]) != NULL) { line_color = COL_YELLOW; break; }
-				}
-			} else if (file_mode == MODE_ASM) {
-				// CORREGIDO: Ahora busca ignorando si el código asm está en mayúsculas o minúsculas
-				for (int i = 0; keywords_asm[i] != NULL; i++) {
-					if (strcasestr_custom(useful_text, keywords_asm[i]) != NULL) { line_color = COL_YELLOW; break; }
-				}
-			} else if (file_mode == MODE_BASIC) {
-				for (int i = 0; keywords_basic[i] != NULL; i++) {
-					if (strcasestr_custom(useful_text, keywords_basic[i]) != NULL) { line_color = COL_YELLOW; break; }
-				}
-			}
-
-			SET_COLOR(line_color);
-			int in_string = 0;
-			for (int i = 0; useful_text[i] != '\0'; i++) {
-				if (useful_text[i] == '"') {
-					if (!in_string) {
-						SET_COLOR(COL_GREEN); // Abrir cadena en verde
-						in_string = 1;
-					} else {
-						putchar(useful_text[i]);
-						SET_COLOR(line_color); // Restaurar al color base de la línea
-						in_string = 0;
-						continue;
-					}
-				}
-
-				// Buscar operadores siempre, dándoles prioridad cian incluso dentro de comillas
-				int is_operator = 0;
-				for (int o = 0; operators[o] != NULL; o++) {
-					int op_len = strlen(operators[o]);
-					if (strncmp(&useful_text[i], operators[o], op_len) == 0) {
-						SET_COLOR(COL_CYAN); // Operador en Cian/Morado
-						printf("%s", operators[o]);
-						SET_COLOR(in_string ? COL_GREEN : line_color); // Retorna a verde si sigue dentro de la cadena
-						i += (op_len - 1);
-						is_operator = 1;
-						break;
-					}
-				}
-				if (is_operator) continue;
-
-				putchar(useful_text[i]);
-			}
-			SET_COLOR(COL_WHITE);
-		}
-	}
-	printf("\n\r");
+void set_color_texto(int c) {
+	putch(17);
+	putch(c);
 }
 
+void set_color_grafico(uint8_t color_id) {
+	putch(18);
+	putch(0);
+	putch(color_id);
+}
+
+void salto_de_linea() {
+	putch(10); // Line Feed
+	putch(13); // Carriage Return
+}
+
+// Resets terminal hardware, forces Mode 27, and activates background transparency
+void inicializar_pagina_vdp() {
+	printf("\x0C"); // Unified text/graphics CLS in Agon MOS
+	putch(22);      // VDU 22: Change video mode
+	putch(27);      // Native Mode 27 (640x256, 64 colors, 1280x1024 virtual grid)
+
+	// VDU 23, 0, 14, 1: Activates text background transparency in the VDP
+	// This absolutely prevents opaque text cells from overwriting the vector graphics
+	putch(23); putch(0); putch(14); putch(1);
+}
+
+// Renders the file header consuming exactly two physical text lines
+void dibujar_cabecera_texto(const char *filename) {
+	set_color_texto(2); // Light Green
+	putch('F'); putch('i'); putch('l'); putch('e'); putch(':'); putch(' ');
+	for (int i = 0; filename[i] != '\0'; i++) {
+		putch(filename[i]);
+	}
+	salto_de_linea(); // Row 0 completed
+	salto_de_linea(); // Row 1 completed (Leaves room to isolate the horizontal vector)
+}
+
+// Renders the high-resolution vector frame. Drawn over the text layout.
+void dibujar_interfaz_grafica_vdp() {
+	set_color_grafico(7); // Light Grey/White for the frame layout
+
+	// 1. Top Horizontal Vector Line: Joins point (0, 960) with point (1279, 960)
+	putch(25); putch(4);  // VDU 25,4 -> Move graphics cursor absolute without drawing
+	vdu_enviar_int16(0);
+	vdu_enviar_int16(960);
+
+	putch(25); putch(5);  // VDU 25,5 -> Draw straight line ABSOLUTE to target coordinates
+	vdu_enviar_int16(1279);
+	vdu_enviar_int16(960);
+
+	// 2. Left Vertical Vector Line: Joins top intersection (coordenada_x_grafica, 960) with floor (coordenada_x_grafica, 0)
+	putch(25); putch(4);
+	vdu_enviar_int16(coordenada_x_grafica);
+	vdu_enviar_int16(960);
+
+	putch(25); putch(5);
+	vdu_enviar_int16(coordenada_x_grafica);
+	vdu_enviar_int16(0);
+}
+
+// Formats the line numbers utilizing the dynamically allocated text columns
+void imprimir_rejilla_lateral() {
+	set_color_texto(7);
+
+	int millar  = (line_number / 1000) % 10;
+	int centena = (line_number / 100) % 10;
+	int decena  = (line_number / 10) % 10;
+	int unidad  = line_number % 10;
+
+	// Expand to 4 digits if the file has 1000+ total lines
+	if (total_lineas_archivo >= 1000) {
+		if (line_number >= 1000) putch('0' + millar);
+		else putch(' ');
+	}
+
+	if (line_number >= 100) putch('0' + centena); else putch(' ');
+	if (line_number >= 10) putch('0' + decena); else putch(' ');
+	putch('0' + unidad);
+
+	putch(32); // Space separator. The vertical vector line will align flush right to this cell.
+	line_number++;
+}
+
+// Safe indent tracking: injects raw space bytes to shift wrapped text without breaking the state machine
+void imprimir_sangrado_desbordo() {
+	int espacios = ancho_texto_rejilla + 2;
+	for(int i = 0; i < espacios; i++) {
+		putch(32);
+	}
+}
+
+// Passive character dispatcher: tracks margins and triggers clean text wraps
+void emit_char(char c) {
+	int max_columnas = 80 - (ancho_texto_rejilla + 2);
+	if (col_count >= max_columnas) {
+		salto_de_linea();
+		active_lines++; // Informs the layout engine that a physical text line has been consumed
+		imprimir_sangrado_desbordo();
+		col_count = 0;
+	}
+	putch(c);
+	col_count++;
+}
 int main(int argc, char *argv[]) {
+	FILE *fp;
+	char ch;
+	int file_mode = MODE_TEXT;
+	int in_comment = 0;
+	int in_string = 0;
+	char word[256]; // Dynamic word parsing buffer
+	int word_idx = 0;
+	int line_start_asm = 0;
+	int useful_asm = 0;
+	int temp_lines = 2; // Match initial layout row offset (Rows 0 and 1 occupied)
+
 	if (argc < 2) {
-		printf("Usage: %s <filename>\n\r", argv[0]);
+		printf("Usage: bat <filename>\n\r");
 		return 1;
 	}
 
-	FILE *file_handle = fopen(argv[1], "r");
-	if (!file_handle) {
-		printf("Error: Could not open file '%s'\n\r", argv[1]);
+	// Automatic extension matching engine
+	if (strstr(argv[1], ".c") != NULL || strstr(argv[1], ".h") != NULL) {
+		file_mode = MODE_C;
+	} else if (strstr(argv[1], ".asm") != NULL || strstr(argv[1], ".s") != NULL || strstr(argv[1], ".lst") != NULL) {
+		file_mode = MODE_ASM;
+	} else if (strstr(argv[1], ".bas") != NULL) {
+		file_mode = MODE_BAS;
+	}
+
+	fp = fopen(argv[1], "r");
+	if (fp == NULL) {
+		printf("Error: Could not open file.\n\r");
 		return 1;
 	}
 
-	SET_COLOR(COL_CYAN);
-	printf("+---[ File: %s ]-----------------------------------\n\r", argv[1]);
-	SET_COLOR(COL_WHITE);
+	// Clear static page tracking layout array
+	memset(page_positions, 0, sizeof(page_positions));
+	page_positions[0] = 0; // Page 0 always points to byte 0 of the stream
+	int scan_page = 0;
 
-	char line[LINE_BUFFER];
-	int line_num = 1;
-	int screen_line_count = 1;
-	int file_mode = MODE_C;
+	// --- HIGH SPEED PRE-SCAN HARDWARE COUNTER AND STATIC PAGE INDEXER ---
+	total_lineas_archivo = 0;
+	int scan_col_count = 0;
+	int max_cols = 80 - 6; // Safe horizontal wrap margin estimation
 
-	// --- DETECCIÓN POR EXTENSIÓN DE ARCHIVO (BBC BASIC / ASSEMBLER) ---
-	int name_len = strlen(argv[1]);
-	if (name_len > 4) {
-		char *ext = argv[1] + name_len - 4;
-		if (strcasecmp(ext, ".bas") == 0 || strcasecmp(ext, ".bbc") == 0) {
-			file_mode = MODE_BASIC;
-		} else if (strcasecmp(ext, ".asm") == 0 || strcasecmp(ext, ".s") == 0) {
-			file_mode = MODE_ASM; // Fuerza modo ASM si detecta la extensión de forma explícita
+	while ((ch = fgetc(fp)) != EOF) {
+		if (ch == '\n') {
+			total_lineas_archivo++;
+			temp_lines++;
+			scan_col_count = 0;
+
+			if (temp_lines >= PAGE_LINES) {
+				scan_page++;
+				if (scan_page < MAX_PAGES) {
+					page_positions[scan_page] = ftell(fp); // Log absolute page boundary offset
+				}
+				temp_lines = 2;
+			}
+		} else if (ch != '\r') {
+			scan_col_count++;
+			if (scan_col_count >= max_cols) {
+				temp_lines++; // Account for forced physical line wraps on long lines
+				scan_col_count = 0;
+				if (temp_lines >= PAGE_LINES) {
+					scan_page++;
+					if (scan_page < MAX_PAGES) {
+						page_positions[scan_page] = ftell(fp);
+					}
+					temp_lines = 2;
+				}
+			}
 		}
 	}
 
-	// --- DETECCIÓN POR CONTENIDO (Listados TPASM) ---
-	if (fgets(line, sizeof(line), file_handle) != NULL) {
-		if (strncmp(line, "tpasm", 5) == 0) {
-			file_mode = MODE_ASM;
-		}
-		process_and_print_line(line, file_mode, line_num);
-		line_num++;
-		screen_line_count++;
+	// Rewind file to byte 0 using AgonDev standard native pointer seek
+	fseek(fp, 0, SEEK_SET);
+
+	// Dynamic grid scaling based on file magnitude
+	if (total_lineas_archivo >= 1000) {
+		ancho_texto_rejilla = 5;   // 4 digits + 1 space delimiter
+		coordenada_x_grafica = 80; // Shift vertical vector line to text column 5
+	} else {
+		ancho_texto_rejilla = 4;   // 3 digits + 1 space delimiter
+		coordenada_x_grafica = 64; // Keep vertical vector line at text column 4
 	}
 
-	// BUCLE PRINCIPAL DE PROCESAMIENTO
-	while (fgets(line, sizeof(line), file_handle) != NULL) {
-		process_and_print_line(line, file_mode, line_num);
-		line_num++;
-		screen_line_count++;
+	// Initialize execution environment runtime states
+	current_page = 0;
+	line_number = 1;
+	active_lines = 0;
+	col_count = 0;
 
-		// Control de congelamiento de página al llegar a la línea 30
-		if (screen_line_count >= PAGE_LINES) {
-			fflush(stdout);
+	memset(word, 0, sizeof(word));
 
-			// Usamos getchar() estándar para asegurar compatibilidad total del teclado en el emulador
-			int input_key = getchar();
+	// Initialize layout for the first page
+	inicializar_pagina_vdp();
+	dibujar_cabecera_texto(argv[1]);
+	active_lines = 2;
+	imprimir_rejilla_lateral();
+	putch(32); putch(32); // Inject padding airway channel next to the grid
 
-			if (input_key == 'q' || input_key == 'Q' || input_key == 113 || input_key == 81) {
-				SET_COLOR(COL_CYAN);
-				printf("+---[ Viewer closed by user ]----------------------\n\r");
-				SET_COLOR(COL_WHITE);
-				fclose(file_handle);
+	// Main character parsing loop
+	while ((ch = fgetc(fp)) != EOF) {
+		int char_procesado = 0;
+		// Interactive pagination control synchronized on-the-fly with active_lines
+		if (active_lines >= PAGE_LINES) {
+			dibujar_interfaz_grafica_vdp();
+
+			int key = getch();
+
+			// 'q' or 'Q' -> Clear screen and exit to MOS prompt
+			if (key == 'q' || key == 'Q' || key == 113 || key == 81) {
+				printf("\x0C"); // Native hardware CLS upon keyboard exit
+				set_color_texto(7);
+				fclose(fp);
+				salto_de_linea();
 				return 0;
+			}
+			// 'b' or 'B' -> Backward one full page via static offset lookup table
+			else if (key == 'b' || key == 'B' || key == 98 || key == 66) {
+				if (current_page > 0) {
+					current_page--;
+				}
+				fseek(fp, page_positions[current_page], SEEK_SET);
 
-			}screen_line_count = 0;
+				// Recalculate base line_number by multiplying real useful lines per page
+				line_number = (current_page * (PAGE_LINES - 2)) + 1;
 
-		}}SET_COLOR(COL_CYAN);
-		printf("+---[ End of file ]---------------------------------\n\r");
-		SET_COLOR(COL_WHITE);
-		fclose(file_handle);
-		return 0;}
+				active_lines = 0;
+				col_count = 0;
+				word_idx = 0;
+				memset(word, 0, sizeof(word));
+				in_comment = 0; in_string = 0; line_start_asm = 0; useful_asm = 0;
+
+				inicializar_pagina_vdp();
+				dibujar_cabecera_texto(argv[1]);
+				active_lines = 2;
+				imprimir_rejilla_lateral();
+				putch(32); putch(32);
+				continue; // Force immediate re-render of the previous page stream
+			}
+			// Space or any other keyboard input -> Forward one page
+			else {
+				current_page++;
+			}
+
+			active_lines = 0;
+			col_count = 0;
+			word_idx = 0;
+			memset(word, 0, sizeof(word));
+			in_comment = 0; in_string = 0; line_start_asm = 0; useful_asm = 0;
+
+			inicializar_pagina_vdp();
+			dibujar_cabecera_texto(argv[1]);
+			active_lines = 2;
+			imprimir_rejilla_lateral();
+			putch(32); putch(32);
+
+			if (ch == '\n') {
+				salto_de_linea();
+				col_count = 0;
+				imprimir_rejilla_lateral();
+				putch(32); putch(32);
+				continue;
+			}
+		}
+
+		if (ch == '\n') {
+			if (word_idx > 0) {
+				word[word_idx] = '\0';
+				for (int i = 0; word[i] != '\0'; i++) emit_char(word[i]);
+				word_idx = 0;
+				memset(word, 0, sizeof(word));
+			}
+
+			salto_de_linea();
+			col_count = 0;
+			in_comment = 0;
+			in_string = 0;
+			line_start_asm = 0;
+			useful_asm = 0;
+			active_lines++;
+
+			if (active_lines < PAGE_LINES) {
+				imprimir_rejilla_lateral();
+				putch(32); putch(32);
+			}
+			continue;
+		}
+
+		if (ch == '\r') continue;
+
+		// --- LANGUAGE HIGHLIGHTING ENGINE AND TOKEN DISPATCHER ---
+		if (file_mode == MODE_ASM) {
+			line_start_asm++;
+			if (line_start_asm <= 30) {
+				set_color_texto(1); // Dark Grey for assembler compilation metadata
+				emit_char(ch);
+				continue;
+			} else {
+				if (line_start_asm == 31) set_color_texto(7);
+				if (ch != ' ' && ch != '\t' && useful_asm == 0) useful_asm = 1;
+			}
+		}
+
+		if (in_comment) {
+			emit_char(ch);
+			continue;
+		}
+
+		if (in_string) {
+			emit_char(ch);
+			if (ch == '"') in_string = 0;
+			continue;
+		}
+
+		if (file_mode == MODE_C && ch == '/' && !in_string) {
+			char next = fgetc(fp);
+			if (next == '/') {
+				if (word_idx > 0) {
+					word[word_idx] = '\0';
+					for (int i = 0; word[i] != '\0'; i++) emit_char(word[i]);
+					word_idx = 0;
+					memset(word, 0, sizeof(word));
+				}
+				set_color_texto(1); // Grey for comments
+				emit_char('/'); emit_char('/');
+				in_comment = 1;
+				continue;
+			} else {
+				ungetc(next, fp);
+			}
+		}
+
+		if (file_mode == MODE_ASM && (ch == ';' || ch == '@') && !in_string) {
+			if (word_idx > 0) {
+				word[word_idx] = '\0';
+				for (int i = 0; word[i] != '\0'; i++) emit_char(word[i]);
+				word_idx = 0;
+				memset(word, 0, sizeof(word));
+			}
+			set_color_texto(1);
+			emit_char(ch);
+			in_comment = 1;
+			continue;
+		}
+
+		if (ch == '"' && !in_comment) {
+			if (word_idx > 0) {
+				word[word_idx] = '\0';
+				for (int i = 0; word[i] != '\0'; i++) emit_char(word[i]);
+				word_idx = 0;
+				memset(word, 0, sizeof(word));
+			}
+			set_color_texto(3); // Cyan for literal strings
+			emit_char(ch);
+			in_string = 1;
+			continue;
+		}
+
+		// Lexical token string builder extraction
+		if (isalnum((unsigned char)ch) || ch == '_' || (file_mode == MODE_C && ch == '#')) {
+			if (word_idx < 255) {
+				word[word_idx++] = ch;
+			}
+		} else {
+			if (word_idx > 0) {
+				word[word_idx] = '\0';
+
+				// C Language Keyword Evaluator
+				if (file_mode == MODE_C) {
+					if (strcmp(word, "int") == 0 || strcmp(word, "char") == 0 || strcmp(word, "void") == 0 ||
+						strcmp(word, "return") == 0 || strcmp(word, "if") == 0 || strcmp(word, "else") == 0 ||
+						strcmp(word, "while") == 0 || strcmp(word, "for") == 0 || strcmp(word, "static") == 0 ||
+						strcmp(word, "uint8_t") == 0 || strcmp(word, "uint16_t") == 0 || strcmp(word, "uint32_t") == 0 ||
+						strcmp(word, "volatile") == 0) {
+						set_color_texto(6); // Magenta for C keywords
+						} else if (word[0] == '#') {
+							set_color_texto(10); // Light Green for preprocessor directves
+						} else {
+							set_color_texto(7);
+						}
+						// eZ80 Assembler Mnemónicos Evaluator
+				} else if (file_mode == MODE_ASM) {
+					if (strcasecmp(word, "ld") == 0 || strcasecmp(word, "add") == 0 || strcasecmp(word, "sub") == 0 ||
+						strcasecmp(word, "jp") == 0 || strcasecmp(word, "jr") == 0 || strcasecmp(word, "call") == 0 ||
+						strcasecmp(word, "ret") == 0 || strcasecmp(word, "inc") == 0 || strcasecmp(word, "dec") == 0 ||
+						strcasecmp(word, "cp") == 0 || strcasecmp(word, "push") == 0 || strcasecmp(word, "pop") == 0) {
+						set_color_texto(4); // Blue for assembler opcodes
+						} else {
+							set_color_texto(7);
+						}
+						// BBC BASIC Token Statement Evaluator
+				} else if (file_mode == MODE_BAS) {
+					if (strcmp(word, "PRINT") == 0 || strcmp(word, "INPUT") == 0 || strcmp(word, "FOR") == 0 ||
+						strcmp(word, "NEXT") == 0 || strcmp(word, "IF") == 0 || strcmp(word, "THEN") == 0 ||
+						strcmp(word, "GOTO") == 0 || strcmp(word, "GOSUB") == 0 || strcmp(word, "RETURN") == 0) {
+						set_color_texto(5); // Red/Orange for BASIC tokens
+						} else {
+							set_color_texto(7);
+						}
+				}
+
+				// Render the finalized parsed token string
+				for (int i = 0; word[i] != '\0'; i++) {
+					emit_char(word[i]);
+				}
+				set_color_texto(7);
+				word_idx = 0;
+				memset(word, 0, sizeof(word)); // Atomic cleanup of memory slots
+			}
+
+			if (!char_procesado) {
+				emit_char(ch);
+			}
+		}
+	}
+
+	// Finalize page frame lines before waiting for final exit key
+	dibujar_interfaz_grafica_vdp();
+
+	set_color_texto(3);
+	printf("\r[EOF: Press 'q' to exit]");
+	while (1) {
+		int key = getch();
+		if (key == 'q' || key == 'Q' || key == 113 || key == 81) {
+			printf("\x0C"); // Hardware CLS upon reaching end of stream
+			break;
+		}
+	}
+
+	set_color_texto(7);
+	salto_de_linea();
+	fclose(fp);
+	return 0;
+}
