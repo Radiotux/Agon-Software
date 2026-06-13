@@ -4,7 +4,10 @@ This repository contains a collection of software developments and utilities des
 
 ## 🔗 Official Resources
 
-* **Toolchain:** Compiled and built using [AgonDev (C/C++ Toolchain)](https://github.com/envenomator/agondev).
+* **Toolchain:** Compiled and built using [AgonDev (C/C++ Toolchain)](https://github.com/envenomator/agondev
+* **Fab Agon Emulator:** https://github.com/tomm/fab-agon-emulator
+* **Agon VDP:** https://github.com/AgonPlatform/agon-vdp
+* **Agon MOS:** https://github.com/AgonPlatform/agon-mos
 * **Agon Documentation:** Refer to the [Community Agon Platform Documentation](https://github.com/AgonPlatform/agon-docs) for comprehensive hardware and firmware guidelines.
 
 ## 🛠️ Compilation
@@ -20,6 +23,7 @@ To compile any of the projects:
 
 This repository includes the following programs and tools:
 
+* **alarm**
 * **bat**
 * **deltree**
 * **diff**
