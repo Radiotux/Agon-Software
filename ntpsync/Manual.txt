@@ -1,0 +1,126 @@
+Compilation and Installation Instructions for ntpsync
+---------------------------------------------<
+Prerequisites:
+
+    AgonDev toolchain installed on your PC (Linux, WSL, or macOS).
+
+    ESP‑01S module with standard AT firmware (e.g., AT+GMR) connected to the Agon Light’s UART1
+    (pins RX and TX only).
+
+    The ESP‑01S must already be configured with your Wi‑Fi credentials (you can test it using
+    a terminal program).
+
+    Step 1: Obtain the source code
+
+Copy the ntpsync.c source code (the final version provided above) into a folder on your PC, e.g.,
+~/agon/ntpsync/.
+
+Step 2: Compile with AgonDev
+
+Open a terminal in that folder and run:
+
+make
+
+If the compilation succeeds, you will see a ntpsync.bin file created.
+Step 3: Transfer the binary to the Agon Light
+
+    Insert the SD card into your PC.
+
+    Copy ntpsync.bin to the /bin the SD or any directory you prefer.
+
+    Safely eject the SD card and insert it into the Agon Light.
+
+Step 4: Run the program
+
+From the Agon Light’s MOS command prompt (the * prompt), navigate to the directory where you
+placed ntpsync.bin (if not the root) and execute:
+
+*ntpsync -3
+
+(Replace -3 with your local UTC offset, e.g., -4, +2, or 0.)
+Execute time command for check the new time on your Agon
+
+The program will run silently (no screen output). To check if it worked, look at the log file:
+
+*type /ntp.log
+----------------------------------------------
+ntpsync – NTP Time Synchronizer for Agon Light
+----------------------------------------------
+
+ntpsync is a command-line utility for the Agon Light (and compatible systems) that synchronizes
+the device's internal Real‑Time Clock (RTC) with a public NTP server using an ESP‑01S module
+running the standard AT firmware (not Zimodem).
+
+Key Features:
+
+    Silent operation – No screen output; ideal for running from autoexec.txt or !boot.obey.
+
+    Logging – Writes a detailed log to /ntp.log on the SD card for troubleshooting.
+
+    UTC offset support – Allows setting any time zone by providing an offset in hours (e.g.,
+    -3 for UTC‑3, +2 for UTC+2).
+
+    Robust communication – Uses UDP to query pool.ntp.org (default) and correctly parses the
+    ESP‑01S +IPD responses.
+
+    Leap year handling – Converts NTP timestamps to Gregorian date correctly up to the year 2099.
+
+    Built‑in help – Run ntpsync -h to display usage and examples without touching the hardware.
+
+    Return codes – Returns 0 on success, 1 on failure; can be used in scripts.
+
+Requirements:
+
+    Agon Light (MOS 1.04 or later)
+
+    ESP‑01S module connected to UART1 or UEXT port (RX/TX only)
+
+    WiFi network configured on the ESP‑01S (must reach the internet)
+
+    Standard AT firmware (e.g., AT+GMR)
+
+Usage Examples:
+
+ntpsync -3       # Set RTC to UTC-3 (Chile winter time)
+ntpsync +2       # Set RTC to UTC+2 (South Africa)
+ntpsync 0        # Set RTC to UTC
+ntpsync -h       # Show help
+
+How It Works
+------------
+    Initialises the ESP‑01S (exits data mode, disables echo, sets single connection).
+
+    Opens a UDP connection to pool.ntp.org:123 with a local port.
+
+    Sends a 48‑byte NTP packet (version 4, client mode).
+
+    Parses the received +IPD response and extracts the 64‑bit timestamp.
+
+    Converts the timestamp to Unix time, adds the user’s UTC offset, and computes local date/time.
+
+    Updates the Agon’s RTC via the VDU command 23,0,0x87,1,....
+
+    Logs every step to /ntp.log (useful for debugging).
+
+Troubleshooting
+---------------
+
+    init_esp: ESP not responding to AT
+    The ESP‑01S is not in command mode. Power‑cycle the module or send +++ manually from a terminal program
+    (e.g., AGON TERMINAL). Then run ntpsync again.
+
+    query_ntp: no CONNECT
+    WiFi connection may be down. Check that the ESP‑01S is connected to your router. You can test with AT+CWJAP
+    commands from a terminal.
+
+    query_ntp: no prompt >
+    The ESP did not respond to AT+CIPSEND. Increase the wait times in query_ntp (e.g., wait_ms(500) after CONNECT).
+
+    The year shows 2092 or wrong date
+    The timestamp conversion is correct in this version. Make sure you are using the final code above.
+
+Credits
+-------
+    Developed by Roberto (Radiotux/rafd_Electrotux) for the Agon community.
+
+    NTP protocol implementation based on public specifications.
