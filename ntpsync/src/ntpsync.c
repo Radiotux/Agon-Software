@@ -1,5 +1,5 @@
 // ntpsync.c - Synchronize Agon Light's RTC with NTP using ESP-01S (standard AT firmware)
-// Compile: agondevc ntpsync.c -o ntpsync.bin
+// Compile: agondevc with make
 // Usage: ntpsync [utc_offset_hours]   or   ntpsync -h
 // Example: ntpsync -3   (for UTC-3)
 // Log written to /ntp.log
