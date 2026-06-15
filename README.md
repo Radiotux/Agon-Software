@@ -38,6 +38,7 @@ This repository includes the following programs and tools:
 * **locate**
 * **minicom**
 * **ntpsync**
+* **ping**
 * **setcolor**
 * **setmode**
 * **sort**
