@@ -35,6 +35,7 @@ This repository includes the following programs and tools:
 * **get**
 * **grep**
 * **head**
+* **ifconfig**
 * **locate**
 * **minicom**
 * **ntpsync**
