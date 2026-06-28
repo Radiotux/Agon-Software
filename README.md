@@ -40,6 +40,7 @@ This repository includes the following programs and tools:
 * **minicom**
 * **ntpsync**
 * **ping**
+* **route**
 * **setcolor**
 * **setmode**
 * **sort**
