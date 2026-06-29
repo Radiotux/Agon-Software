@@ -27,6 +27,7 @@ To compile any of the projects:
 This repository includes the following programs and tools:
 
 * **alarm**
+* **arp**
 * **bat**
 * **deltree**
 * **diff**
@@ -38,6 +39,8 @@ This repository includes the following programs and tools:
 * **ifconfig**
 * **locate**
 * **minicom**
+* **netstat**
+* **nslookup**
 * **ntpsync**
 * **ping**
 * **route**
